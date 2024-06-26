@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/casbin/casbin/v2/constant"
 	"github.com/casbin/casbin/v2/effector"
 	"github.com/casbin/casbin/v2/log"
 	"github.com/casbin/casbin/v2/model"
@@ -666,6 +667,15 @@ func (e *Enforcer) enforce(matcher string, explains *[]string, rvals ...interfac
 		pTokens[token] = i
 	}
 
+	rDom := -1
+	pDom := -1
+	if i, ok := rTokens["r_"+constant.DomainIndex]; ok {
+		rDom = i
+	}
+	if i, ok := pTokens["p_"+constant.DomainIndex]; ok {
+		pDom = i
+	}
+
 	if e.acceptJsonRequest {
 		// try to parse all request values from json to map[string]interface{}
 		// skip if there is an error
@@ -706,15 +716,15 @@ func (e *Enforcer) enforce(matcher string, explains *[]string, rvals ...interfac
 			rvals)
 	}
 
-	var policyEffects []effector.Effect
-	var matcherResults []float64
+	var policyEffects = make(map[int]effector.Effect)
+	var matcherResults = make(map[int]float64)
 
 	var effect effector.Effect
 	var explainIndex int
 
 	if policyLen := len(e.model["p"][pType].Policy); policyLen != 0 && strings.Contains(expString, pType+"_") { //nolint:nestif // TODO: reduce function complexity
-		policyEffects = make([]effector.Effect, policyLen)
-		matcherResults = make([]float64, policyLen)
+		// policyEffects = make([]effector.Effect, policyLen)
+		// matcherResults = make([]float64, policyLen)
 
 		for policyIndex, pvals := range e.model["p"][pType].Policy {
 			// log.LogPrint("Policy Rule: ", pvals)
@@ -724,6 +734,10 @@ func (e *Enforcer) enforce(matcher string, explains *[]string, rvals ...interfac
 					len(e.model["p"][pType].Tokens),
 					len(pvals),
 					pvals)
+			}
+
+			if rDom >= 0 && pDom >= 0 && rvals[rDom] != pvals[pDom] {
+				continue
 			}
 
 			parameters.pVals = pvals
@@ -780,8 +794,8 @@ func (e *Enforcer) enforce(matcher string, explains *[]string, rvals ...interfac
 			return false, errors.New("please make sure rule exists in policy when using eval() in matcher")
 		}
 
-		policyEffects = make([]effector.Effect, 1)
-		matcherResults = make([]float64, 1)
+		// policyEffects = make([]effector.Effect, 1)
+		// matcherResults = make([]float64, 1)
 		matcherResults[0] = 1
 
 		parameters.pVals = make([]string, len(parameters.pTokens))
